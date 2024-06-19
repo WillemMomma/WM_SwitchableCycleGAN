@@ -20,7 +20,7 @@ We implemented this code based on the [original CycleGAN codes][CycleGAN link].
 ## Model
 The trained model weights can be downloaded [here][model link]. The model should be located on './result/checkpoints/'
 
-[model link]: https://drive.google.com/drive/folders/1wl8uSpXiFgOpBOsUzjWKmFtg87sGT7ZJ?usp=sharing
+[model link]: https://drive.google.com/drive/folders/1xiVxB79IjPTipJwzkV1t_095X1kXk4kP?usp=sharing
 
 ## Train 
 You can use train.py for 2 domain Switchable CycleGAN, and train_M.py for 3 domain Switchable CycleGAN.
