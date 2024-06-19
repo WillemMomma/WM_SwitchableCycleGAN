@@ -13,7 +13,7 @@ We implemented this code based on the [original CycleGAN codes][CycleGAN link].
 ## Sample Data
 [The sample data][data link] is from [Low Dose CT Grand Challenge][aapm link]. The data should be located on './dataset' and './dataset_M' for 2 domain and 3 domain, respectively.
 
-[data link]: https://drive.google.com/drive/folders/143rA1SmTxMFmUGtPFIqZP3xOtNIxIbQ9?usp=sharing
+[data link]: https://drive.google.com/drive/folders/1SM0_-vJYB6xoDo0OtROdyYB7zfgJJmOw?usp=sharing
 
 [aapm link]: https://www.aapm.org/grandchallenge/lowdosect/
 
