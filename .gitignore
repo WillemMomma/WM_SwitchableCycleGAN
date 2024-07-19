@@ -1,0 +1,5 @@
+# Ignore the result folder
+/result/
+
+# Ignore the dataset folder
+/dataset/
