@@ -310,17 +310,12 @@ class Dataset_test(data.Dataset):
         for p in self.dir:
             tmp_path_H = glob(p + '/H/*.dcm')
             tmp_path_S = glob(p + '/S/*.dcm')
-            print(f"tmp_path_H: {tmp_path_H}")  # Debug statement
-            print(f"tmp_path_S: {tmp_path_S}")  # Debug statement
 
             self.path_H.extend(tmp_path_H)
             self.path_S.extend(tmp_path_S)
 
         self.path_H = sorted(self.path_H)
         self.path_S = sorted(self.path_S)
-
-        print(f"Final path_H: {self.path_H}")  # Debug statement
-        print(f"Final path_S: {self.path_S}")  # Debug statement
 
     def __getitem__(self, index):
         path_H = self.path_H[index]

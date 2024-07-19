@@ -4,27 +4,18 @@ import pydicom
 import numpy as np
 import torch
 import uuid
+from tqdm import tqdm
 
 from Model import Model
 from Dataset_size import Dataset_test_M as Dataset_M
 from Dataset_size import Dataset_test as Dataset
 from torch.utils.data import DataLoader
+from datetime import datetime
 
 
 def _save_dicom(fake, path, opt, alpha):
     fake = fake.cpu().detach().numpy()
     fake = fake.squeeze()
-
-    # Define the expected value range for the pixel data
-    vmin = 50 - 120 / 2
-    vmax = 50 + 120 / 2
-
-    # Clip the pixel values to the defined range
-    fake = np.clip(fake, a_min=vmin, a_max=vmax)
-    
-    # Normalize the pixel values to fit within the DICOM pixel data range
-    fake = (fake - vmin) / (vmax - vmin)
-    fake = (fake * 4095).astype(np.uint16)  # Assuming 12-bit data (0-4095)
 
     # Read the original DICOM file to use as a template
     ds = pydicom.dcmread(path)
@@ -32,18 +23,27 @@ def _save_dicom(fake, path, opt, alpha):
     # Ensure pixel data is uncompressed
     if ds.file_meta.TransferSyntaxUID.is_compressed:
         ds.decompress()
+
+    # Define the actual value range from the original image
+    vmin = np.min(ds.pixel_array)
+    vmax = np.max(ds.pixel_array)
+    
+    # Clip the pixel values to the defined range
+    fake = np.clip(fake, a_min=vmin, a_max=vmax)
+    
+    # Normalize the pixel values to fit within the DICOM pixel data range
+    fake = (fake - vmin) / (vmax - vmin)
+    fake = (fake * 4095).astype(np.uint16)  # Assuming 12-bit data (0-4095)
     
     ds.PixelData = fake.tobytes()
 
     # Update necessary DICOM metadata
     ds.Rows, ds.Columns = fake.shape
     
-    # Change SeriesInstanceUID and SOPInstanceUID to make the DICOM unique
-    ds.SeriesInstanceUID = pydicom.uid.generate_uid()
-    ds.SOPInstanceUID = pydicom.uid.generate_uid()
-    
-    # Optionally, you can change the SeriesDescription to indicate it is processed data
-    ds.SeriesDescription = f"Processed_{alpha}"
+    # Change PatientName and PatientID to make the DICOM unique
+    ds.PatientName = f"Alpha = {alpha} {datetime.now().strftime('%Y/%m/%d')}"
+    ds.PatientID = f"alpha{alpha}_{datetime.now().strftime('%Y_%m_%d')}"
+
 
     save_path = os.path.join(opt.save_dir, opt.name, str(alpha), 'S')
     os.makedirs(save_path, exist_ok=True)
@@ -106,7 +106,7 @@ def main():
     for alpha in opt.alphas:
         print(f"Alpha: {alpha}")
 
-        for i, data in enumerate(dataloader):
+        for i, data in enumerate(tqdm(dataloader, desc=f"Processing alpha {alpha}")):
             model.set_input(data)
             real_H = model.real_H
 
