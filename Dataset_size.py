@@ -11,7 +11,6 @@ import torchvision.transforms as transforms
 from PIL import Image
 
 from scipy import io
-import ipdb
 
 class Dataset_fold_best(data.Dataset):
 
@@ -308,8 +307,8 @@ class Dataset_test(data.Dataset):
         self.dir = sorted(glob(dir_id_list_test+'/*'))
 
         for p in self.dir:
-            tmp_path_H = glob(p + '/H/*.mat')
-            tmp_path_S = glob(p + '/S/*.mat')
+            tmp_path_H = glob(p + '/H/*.dcm')
+            tmp_path_S = glob(p + '/S/*.dcm')
 
             self.path_H.extend(tmp_path_H)
             self.path_S.extend(tmp_path_S)
@@ -322,8 +321,8 @@ class Dataset_test(data.Dataset):
         path_H = self.path_H[index]
         path_S = self.path_S[index]
 
-        img_H = _read_mat(path_H)
-        img_S = _read_mat(path_S)
+        img_H = _read_dicom(path_H)
+        img_S = _read_dicom(path_S)
 
         # normalize for each volume
         m_H,v_H = np.mean(img_H), np.std(img_H)
@@ -404,6 +403,11 @@ class Dataset_test_M(data.Dataset):
         data_size = min(data_size, len(self.path_S))
         return int(data_size)
 
+def _read_mat(path):
+    tmp = sio.loadmat(path)
+    pixel_value = tmp['img']
+    return pixel_value
+
 def _read_dicom(path):
     tmp = pydicom.dcmread(path)
     pixel_value = np.array(tmp.pixel_array)
@@ -411,11 +415,6 @@ def _read_dicom(path):
     HU_value = pixel_value * tmp.RescaleSlope + tmp.RescaleIntercept
     HU_value = _preprocessing(HU_value)
     return HU_value
-
-def _read_mat(path):
-    tmp = sio.loadmat(path)
-    pixel_value = tmp['img']
-    return pixel_value
 
 def _preprocessing(image):
     output = np.copy(image)

@@ -3,3 +3,6 @@
 
 # Ignore the dataset folder
 /dataset/
+
+# Ignore pycache
+__pycache__/

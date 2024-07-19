@@ -1,6 +1,6 @@
 import argparse
 import os
-
+import pydicom
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -11,23 +11,32 @@ from Dataset_size import Dataset_test as Dataset
 from torch.utils.data import DataLoader
 
 
-def _imsave_fake(path, fake, type, alpha, opt):
+def _save_dicom(fake, path, opt, type, alpha):
     fake = fake.cpu().detach().numpy()
     fake = fake.squeeze()
+
     if type == 'H':
         vmin = 400 - 1500 / 2
         vmax = 400 + 1500 / 2
     elif type == 'S':
         vmin = 50 - 120 / 2
         vmax = 50 + 120 / 2
-    fake = np.array(np.clip(fake, a_min=vmin, a_max=vmax))
-    fake = (fake - vmin) / (vmax-vmin)
 
-    id = path.split('/Facial_bone_test/')[1].replace('.mat','.png')
+    fake = np.clip(fake, a_min=vmin, a_max=vmax)
+    
+    # Read the original DICOM file to use as a template
+    ds = pydicom.dcmread(path)
+    ds.PixelData = fake.astype(np.int16).tobytes()
 
-    save_path = opt.save_dir + '/{}/{}/fake{}/'.format(opt.name,alpha,type) + id
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    plt.imsave(save_path, fake, cmap='gray')
+    # Update necessary DICOM metadata
+    ds.Rows, ds.Columns = fake.shape
+
+    save_path = os.path.join(opt.save_dir, opt.name, str(alpha), type)
+    os.makedirs(save_path, exist_ok=True)
+    save_file = os.path.join(save_path, os.path.basename(path))
+    
+    ds.save_as(save_file)
+
 
 def _unpreprocessing(image):
     output = image
@@ -66,30 +75,31 @@ def main():
     opt.alphas = temp
     print(opt)
 
-    if opt.data_dir.split('/')[-2] == 'dataset_M':
+    # Update to check for the actual directory structure
+    if 'dataset_M' in opt.data_dir.split('/'):
         dataset = Dataset_M(opt)
-    elif opt.data_dir.split('/')[-2] == 'dataset':
+    elif 'dataset' in opt.data_dir.split('/'):
         dataset = Dataset(opt)
     else:
-        raise ValueError
-    dataloader = DataLoader(dataset, batch_size = 1, shuffle = False, num_workers=1)
+        raise ValueError(f"Unrecognized data directory structure: {opt.data_dir}")
+
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=1)
     dataset_size = len(dataset)
     print(dataset_size)
 
-    model = Model(opt, current_i = False)
+    model = Model(opt, current_i=False)
     model.eval()
     for alpha in opt.alphas:
-        print("Alpha: {}".format(alpha))
+        print(f"Alpha: {alpha}")
 
         for i, data in enumerate(dataloader):
-
             model.set_input(data)
             real_H = model.real_H
             real_S = model.real_S
             # forward
             with torch.no_grad():
-                fake_H = model.netG(real_S,alpha= float(alpha)).cpu()
-                fake_S = model.netG(real_H,alpha= float(alpha)).cpu()
+                fake_H = model.netG(real_S, alpha=float(alpha)).cpu()
+                fake_S = model.netG(real_H, alpha=float(alpha)).cpu()
 
             fake_H = fake_H.squeeze()
             fake_S = fake_S.squeeze()
@@ -102,15 +112,9 @@ def main():
             fake_H = _unpreprocessing(fake_H)
             fake_S = _unpreprocessing(fake_S)
 
-            # save results
-            if opt.data_dir.split('/')[-2] == 'dataset':
-                _imsave_fake(model.path_S[0], fake_H, 'H', alpha, opt)
-                _imsave_fake(model.path_H[0], fake_S, 'S', alpha, opt)
-            elif opt.data_dir.split('/')[-2] == 'dataset_M':
-                _imsave_fake(model.path_S[0], fake_H, 'H', alpha, opt)
-                _imsave_fake(model.path_H[0], fake_S, 'S', alpha, opt)
-
-
+            # save results as DICOM
+            _save_dicom(fake_H, model.path_S[0], opt, 'H', alpha)
+            _save_dicom(fake_S, model.path_H[0], opt, 'S', alpha)
 
 if __name__ == "__main__":
     main()

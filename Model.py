@@ -11,16 +11,10 @@ from utils.image_pool import ImagePool
 from networks.discriminator import Discriminator2 as Discriminator
 from networks.adain import half_PolyPhase_resUnet_Adain as Generator
 
-
-import ipdb
-
 class Model():
     def __init__(self, opt, current_i):
         self.opt = opt
-        if self.opt.gpu_parallel:
-            self.device = torch.device('cuda:{}'.format(opt.multiple_ids[0]))
-        else:
-            self.device = torch.device('cuda:{}'.format(opt.gpu_ids))
+        self.device = torch.device('cuda:{}'.format(opt.gpu_ids) if torch.cuda.is_available() and opt.gpu_ids != '-1' else 'cpu')
         self.max_Val_Gan_loss = 0
 
         self.visual_names = ['real_S', 'real_H', 'fake_S', 'fake_H', 'rec_S', 'rec_H']
@@ -40,16 +34,13 @@ class Model():
         self.netD_H = Discriminator()
 
         if torch.cuda.device_count() > 1 and self.opt.gpu_parallel:
-            self.netG = nn.DataParallel(self.netG, device_ids = self.opt.multiple_ids, output_device=self.opt.multiple_ids[0])
-            self.netD_S = nn.DataParallel(self.netD_S, device_ids = self.opt.multiple_ids, output_device=self.opt.multiple_ids[0])
-            self.netD_H = nn.DataParallel(self.netD_H, device_ids = self.opt.multiple_ids, output_device=self.opt.multiple_ids[0])
-            self.netG.to(self.device)
-            self.netD_S.to(self.device)
-            self.netD_H.to(self.device)
-        else:
-            self.netG.to(self.device)
-            self.netD_S.to(self.device)
-            self.netD_H.to(self.device)
+            self.netG = nn.DataParallel(self.netG, device_ids=self.opt.multiple_ids, output_device=self.opt.multiple_ids[0])
+            self.netD_S = nn.DataParallel(self.netD_S, device_ids=self.opt.multiple_ids, output_device=self.opt.multiple_ids[0])
+            self.netD_H = nn.DataParallel(self.netD_H, device_ids=self.opt.multiple_ids, output_device=self.opt.multiple_ids[0])
+        
+        self.netG.to(self.device)
+        self.netD_S.to(self.device)
+        self.netD_H.to(self.device)
 
         if self.opt.isTrain:
             self.fake_S_pool = ImagePool(self.opt.pool_size, self.opt.pool_prob)
@@ -59,8 +50,8 @@ class Model():
             self.criterion_Cycle = nn.L1Loss()
             self.criterion_Identity = nn.L1Loss()
 
-            self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1,0.999))
-            self.optimizer_D = torch.optim.Adam(itertools.chain(self.netD_S.parameters(),self.netD_H.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_D = torch.optim.Adam(itertools.chain(self.netD_S.parameters(), self.netD_H.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
 
             if self.opt.lr_schedule and not self.opt.continue_train:
                 self.lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer_G, milestones=opt.milestones, gamma=0.5)
@@ -72,6 +63,7 @@ class Model():
             load_suffix = '%d' % opt.load_epoch
             self.load_optimizer(load_suffix)
         self.print_networks()
+
 
     def set_input(self, data):
         self.real_S = data['real_S'].to(self.device)
@@ -219,22 +211,20 @@ class Model():
             else:
                 if isinstance(name, str):
                     load_filename = '%s_%s.pth' % (epoch, name)
-                    if self.opt.phase =='test':
+                    if self.opt.phase == 'test':
                         load_path = os.path.join(self.opt.save_dir, '{}/{}'.format(self.opt.name, load_filename))
                     else:
-                        load_path = os.path.join(self.opt.save_dir, '{}/validation_id_{}_{}/{}'
-                                             .format(self.opt.name, self.opt.val_id[0], self.opt.val_id[1], load_filename))
+                        load_path = os.path.join(self.opt.save_dir, '{}/validation_id_{}_{}/{}'.format(self.opt.name, self.opt.val_id[0], self.opt.val_id[1], load_filename))
                     net = getattr(self, name)
                     if isinstance(net, torch.nn.DataParallel):
                         net = net.module
                     print('loading the model from %s' % load_path)
 
-                    state_dict = torch.load(load_path, map_location=str(self.device))
+                    state_dict = torch.load(load_path, map_location=self.device)
                     if hasattr(state_dict, '_metadata'):
                         del state_dict._metadata
 
-                    if (self.opt.phase == 'test' and self.opt.gpu_parallel_train)\
-                            or (self.opt.phase == 'train' and self.opt.continue_train and self.opt.gpu_parallel):
+                    if (self.opt.phase == 'test' and self.opt.gpu_parallel_train) or (self.opt.phase == 'train' and self.opt.continue_train and self.opt.gpu_parallel):
                         new_state_dict = OrderedDict()
                         for k, v in state_dict.items():
                             name = k[7:]
@@ -242,6 +232,7 @@ class Model():
                         net.load_state_dict(new_state_dict)
                     else:
                         net.load_state_dict(state_dict)
+
 
 
     def load_optimizer(self, epoch):

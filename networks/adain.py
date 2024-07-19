@@ -18,10 +18,10 @@ class half_PolyPhase_resUnet_Adain(nn.Module):
 
         self.adain_shared = adain_code_generator_shared()
 
-    def forward(self,input, alpha):
+    def forward(self, input, alpha):
         batch_size = input.shape[0]
         shared_code = self.adain_shared(batch_size)
-        x0 = self.inconv(input, shared_code,  alpha)
+        x0 = self.inconv(input, shared_code, alpha)
         x1 = self.down1(x0, shared_code, alpha)
         x2 = self.down2(x1, shared_code, alpha)
         x3 = self.down3(x2, shared_code, alpha)
@@ -40,7 +40,7 @@ class inconv(nn.Module):
         self.conv1 = one_conv(in_ch, out_ch)
         self.conv2 = one_conv_adain(out_ch, out_ch)
 
-    def forward(self,x, shared_code, alpha):
+    def forward(self, x, shared_code, alpha):
         x = self.conv1(x)
         x = self.conv2(x, shared_code, alpha)
         return x
@@ -53,7 +53,7 @@ class one_conv(nn.Module):
             nn.InstanceNorm2d(out_ch),
             nn.ReLU(inplace=True),
         )
-    def forward(self,x):
+    def forward(self, x):
         x = self.conv(x)
         return x
 
@@ -65,7 +65,7 @@ class one_conv_adain(nn.Module):
         self.adain = adain_code_generator_seperate(out_ch)
         self.Leakyrelu = nn.LeakyReLU(inplace=True)
 
-    def forward(self,x_in, shared_code, alpha):
+    def forward(self, x_in, shared_code, alpha):
         x_in = self.conv(x_in)
         x_in = self.instanceNorm(x_in)
 
@@ -79,24 +79,24 @@ class one_conv_adain(nn.Module):
 
 
 class down_half_polyphase(nn.Module):
-    def __init__(self,in_ch, out_ch):
+    def __init__(self, in_ch, out_ch):
         super(down_half_polyphase, self).__init__()
         self.conv1 = one_conv(in_ch, int(out_ch/2))
         self.conv2 = one_conv_adain(int(out_ch/2), out_ch)
 
-    def forward(self,x, shared_code, alpha):
+    def forward(self, x, shared_code, alpha):
         x = subpixel_pooling(x)
         x = self.conv1(x)
         x = self.conv2(x, shared_code, alpha)
         return x
 
 class down_half_polyphase_end(nn.Module):
-    def __init__(self,in_ch, out_ch):
+    def __init__(self, in_ch, out_ch):
         super(down_half_polyphase_end, self).__init__()
         self.conv1 = one_conv_adain(in_ch, int(out_ch/2))
         self.conv2 = one_conv_adain(int(out_ch/2), out_ch)
 
-    def forward(self,x, shared_code, alpha):
+    def forward(self, x, shared_code, alpha):
         x = subpixel_pooling(x)
         x = self.conv1(x, shared_code, alpha)
         x = self.conv2(x, shared_code, alpha)
@@ -104,7 +104,7 @@ class down_half_polyphase_end(nn.Module):
 
 class up_half_polyphase(nn.Module):
     def __init__(self, in_ch, out_ch):
-        super(up_half_polyphase,self).__init__()
+        super(up_half_polyphase, self).__init__()
         self.up = nn.ConvTranspose2d(in_channels=in_ch, out_channels=in_ch // 2, kernel_size=2, stride=2)
         self.conv1 = one_conv(in_ch, out_ch)
         self.conv2 = one_conv_adain(out_ch, out_ch)
@@ -118,11 +118,11 @@ class up_half_polyphase(nn.Module):
 
 
 class outconv(nn.Module):
-    def __init__(self,in_ch, out_ch):
+    def __init__(self, in_ch, out_ch):
         super(outconv, self).__init__()
-        self.conv = nn.Conv2d(in_ch, out_ch,1)
+        self.conv = nn.Conv2d(in_ch, out_ch, 1)
 
-    def forward(self,x):
+    def forward(self, x):
         x = self.conv(x)
         return x
 
@@ -133,19 +133,24 @@ def subpixel_pooling(x):
     x3 = x[:, :, 1::2, ::2]
     x4 = x[:, :, 1::2, 1::2]
 
-    out = torch.cat([x1,x2,x3,x4], dim=1)
+    out = torch.cat([x1, x2, x3, x4], dim=1)
     return out
 
 class adain_code_generator_shared(nn.Module):
     def __init__(self):
         super(adain_code_generator_shared, self).__init__()
-        self.fc1 = nn.Linear(128,64)
-        self.fc2 = nn.Linear(64,64)
-        self.fc3 = nn.Linear(64,64)
-        self.fc4 = nn.Linear(64,64)
+        self.fc1 = nn.Linear(128, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.fc3 = nn.Linear(64, 64)
+        self.fc4 = nn.Linear(64, 64)
 
     def forward(self, batch_size):
-        self.ones_vec = torch.ones((batch_size, 128)).cuda(self.fc1.weight.device)
+        # Check if the current device is a CUDA device
+        device = self.fc1.weight.device
+        if device.type == 'cpu':
+            self.ones_vec = torch.ones((batch_size, 128)).to(device)
+        else:
+            self.ones_vec = torch.ones((batch_size, 128)).cuda(device)
 
         x = self.fc1(self.ones_vec)
         x = self.fc2(x)
@@ -157,8 +162,8 @@ class adain_code_generator_seperate(nn.Module):
     def __init__(self, ch):
         super(adain_code_generator_seperate, self).__init__()
 
-        self.fc_mean = nn.Linear(64,ch)
-        self.fc_var = nn.Linear(64,ch)
+        self.fc_mean = nn.Linear(64, ch)
+        self.fc_var = nn.Linear(64, ch)
         self.LeakyReLU = nn.LeakyReLU(inplace=True)
         self.ReLU = nn.ReLU(inplace=True)
 
@@ -169,11 +174,7 @@ class adain_code_generator_seperate(nn.Module):
         fc_var = self.fc_var(shared_code)      
         fc_var = self.ReLU(fc_var)
 
-        fc_mean_np = fc_mean.view(N,C,1,1).expand(N,C,h,w)     
-        fc_var_np = fc_var.view(N,C,1,1).expand(N,C,h,w)      
+        fc_mean_np = fc_mean.view(N, C, 1, 1).expand(N, C, h, w)     
+        fc_var_np = fc_var.view(N, C, 1, 1).expand(N, C, h, w)      
 
         return fc_mean_np, fc_var_np
-
-
-
-
