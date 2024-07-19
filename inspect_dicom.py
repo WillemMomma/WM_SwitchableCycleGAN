@@ -6,8 +6,8 @@ def inspect_dicom(path):
     ds = pydicom.dcmread(path)
 
     # Print the dicom file details
-    print(f"--------- Dicom inspection for {path} --------------")
-    print(ds)
+    # print(f"--------- Dicom inspection for {path} --------------")
+    # print(ds)
 
     # Print the pixel data
     print(f"--------- Pixel data for {path} --------------")
@@ -32,11 +32,13 @@ def inspect_dicom(path):
     print("Standard deviation: ", np.std(ds.pixel_array))
 
 def main():
-    path_s = "WM_SwitchableCycleGAN/dataset/Ct_face_test/samples/S/CT_10.dcm"
-    path_h = "WM_SwitchableCycleGAN/dataset/Ct_face_test/samples/H/CT_10.dcm"
+    path_s = "dataset/Ct_face_test/samples/S/CT_10.dcm"
+    path_h = "dataset/Ct_face_test/samples/H/CT_10.dcm"
+    path_adjusted = "result/checkpoints/last/0.7/S/CT_10.dcm"
 
     inspect_dicom(path_s)
     inspect_dicom(path_h)
+    inspect_dicom(path_adjusted)
 
 if __name__ == "__main__":
     main()

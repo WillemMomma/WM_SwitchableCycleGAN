@@ -3,14 +3,13 @@ import os
 import pydicom
 import numpy as np
 import torch
-import uuid
 from tqdm import tqdm
+from datetime import datetime
 
 from Model import Model
 from Dataset_size import Dataset_test_M as Dataset_M
 from Dataset_size import Dataset_test as Dataset
 from torch.utils.data import DataLoader
-from datetime import datetime
 
 
 def _save_dicom(fake, path, opt, alpha):
@@ -24,10 +23,9 @@ def _save_dicom(fake, path, opt, alpha):
     if ds.file_meta.TransferSyntaxUID.is_compressed:
         ds.decompress()
 
-    # Define the actual value range from the original image
-    vmin = np.min(ds.pixel_array)
-    vmax = np.max(ds.pixel_array)
-    
+    vmin = -20
+    vmax = 120
+
     # Clip the pixel values to the defined range
     fake = np.clip(fake, a_min=vmin, a_max=vmax)
     
@@ -43,7 +41,6 @@ def _save_dicom(fake, path, opt, alpha):
     # Change PatientName and PatientID to make the DICOM unique
     ds.PatientName = f"Alpha = {alpha} {datetime.now().strftime('%Y/%m/%d')}"
     ds.PatientID = f"alpha{alpha}_{datetime.now().strftime('%Y_%m_%d')}"
-
 
     save_path = os.path.join(opt.save_dir, opt.name, str(alpha), 'S')
     os.makedirs(save_path, exist_ok=True)
