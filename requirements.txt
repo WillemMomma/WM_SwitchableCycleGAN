@@ -3,3 +3,4 @@ numpy
 pytorch_ssim
 matplotlib
 tensorboardX
+tqdm

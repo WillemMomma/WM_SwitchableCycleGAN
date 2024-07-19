@@ -53,6 +53,25 @@ Use `inference_M.py` to test the 3-domain model.
 python inference_M.py
 ```
 
+## Running Inference
+
+To run inference on the trained 2-domain model, you can use the following command:
+
+```bash
+python3 inference.py --phase test --data_type Facial_bone --name last --load_epoch 191 --alphas 1.0 --data_dir ./dataset/Ct_face_test/samples --save_dir ./result/checkpoints --gpu_ids -1
+```
+
+### Explanation of Parameters
+
+- `--phase test`: Specifies the phase of the operation. For inference, this should be set to `test`.
+- `--data_type Facial_bone`: Defines the type of data being processed. In this case, it is `Facial_bone`.
+- `--name last`: The name of the experiment. This is used to locate the appropriate model checkpoints.
+- `--load_epoch 191`: Indicates the specific epoch of the model to load for inference. In this example, epoch `191` is used.
+- `--alphas 1.0`: Specifies the alpha values for the style transfer. Multiple values can be tested by providing a comma-separated list.
+- `--data_dir ./dataset/Ct_face_test/samples`: The directory containing the input data for inference.
+- `--save_dir ./result/checkpoints`: The directory where the results will be saved.
+- `--gpu_ids -1`: Indicates which GPU to use for inference. Setting this to `-1` forces the code to run on the CPU.
+
 ## Acknowledgements
 This code is based on the paper and original repository:
 - [Continuous Conversion of CT Kernel using Switchable CycleGAN with AdaIN][paper link] (arXiv.org, Serin Yang et al.)
@@ -64,4 +83,3 @@ The authors implemented this code based on the [original CycleGAN codes][CycleGA
 [model link]: https://drive.google.com/drive/folders/1xiVxB79IjPTipJwzkV1t_095X1kXk4kP?usp=sharing
 [paper link]: https://arxiv.org/abs/2011.13150
 [CycleGAN link]: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix
-

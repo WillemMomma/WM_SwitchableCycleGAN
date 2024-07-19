@@ -1,9 +1,9 @@
 import argparse
 import os
 import pydicom
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import uuid
 
 from Model import Model
 from Dataset_size import Dataset_test_M as Dataset_M
@@ -11,27 +11,41 @@ from Dataset_size import Dataset_test as Dataset
 from torch.utils.data import DataLoader
 
 
-def _save_dicom(fake, path, opt, type, alpha):
+def _save_dicom(fake, path, opt, alpha):
     fake = fake.cpu().detach().numpy()
     fake = fake.squeeze()
 
-    if type == 'H':
-        vmin = 400 - 1500 / 2
-        vmax = 400 + 1500 / 2
-    elif type == 'S':
-        vmin = 50 - 120 / 2
-        vmax = 50 + 120 / 2
+    # Define the expected value range for the pixel data
+    vmin = 50 - 120 / 2
+    vmax = 50 + 120 / 2
 
+    # Clip the pixel values to the defined range
     fake = np.clip(fake, a_min=vmin, a_max=vmax)
     
+    # Normalize the pixel values to fit within the DICOM pixel data range
+    fake = (fake - vmin) / (vmax - vmin)
+    fake = (fake * 4095).astype(np.uint16)  # Assuming 12-bit data (0-4095)
+
     # Read the original DICOM file to use as a template
     ds = pydicom.dcmread(path)
-    ds.PixelData = fake.astype(np.int16).tobytes()
+    
+    # Ensure pixel data is uncompressed
+    if ds.file_meta.TransferSyntaxUID.is_compressed:
+        ds.decompress()
+    
+    ds.PixelData = fake.tobytes()
 
     # Update necessary DICOM metadata
     ds.Rows, ds.Columns = fake.shape
+    
+    # Change SeriesInstanceUID and SOPInstanceUID to make the DICOM unique
+    ds.SeriesInstanceUID = pydicom.uid.generate_uid()
+    ds.SOPInstanceUID = pydicom.uid.generate_uid()
+    
+    # Optionally, you can change the SeriesDescription to indicate it is processed data
+    ds.SeriesDescription = f"Processed_{alpha}"
 
-    save_path = os.path.join(opt.save_dir, opt.name, str(alpha), type)
+    save_path = os.path.join(opt.save_dir, opt.name, str(alpha), 'S')
     os.makedirs(save_path, exist_ok=True)
     save_file = os.path.join(save_path, os.path.basename(path))
     
@@ -85,7 +99,7 @@ def main():
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=1)
     dataset_size = len(dataset)
-    print(dataset_size)
+    print("Dataset Size: ", dataset_size)
 
     model = Model(opt, current_i=False)
     model.eval()
@@ -95,26 +109,21 @@ def main():
         for i, data in enumerate(dataloader):
             model.set_input(data)
             real_H = model.real_H
-            real_S = model.real_S
+
             # forward
             with torch.no_grad():
-                fake_H = model.netG(real_S, alpha=float(alpha)).cpu()
                 fake_S = model.netG(real_H, alpha=float(alpha)).cpu()
 
-            fake_H = fake_H.squeeze()
             fake_S = fake_S.squeeze()
 
             # un-normalize for each volume
-            fake_H = fake_H * data['stat_S'][1] + data['stat_S'][0]
             fake_S = fake_S * data['stat_H'][1] + data['stat_H'][0]
 
             # un-preprocessing
-            fake_H = _unpreprocessing(fake_H)
             fake_S = _unpreprocessing(fake_S)
 
             # save results as DICOM
-            _save_dicom(fake_H, model.path_S[0], opt, 'H', alpha)
-            _save_dicom(fake_S, model.path_H[0], opt, 'S', alpha)
+            _save_dicom(fake_S, model.path_H[0], opt, alpha)
 
 if __name__ == "__main__":
     main()

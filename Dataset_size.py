@@ -295,20 +295,23 @@ class Dataset_3fold_best_M(data.Dataset):
         return int(data_size)
 
 class Dataset_test(data.Dataset):
-
     def __init__(self, opt):
         self.opt = opt
         self.batch_size = self.opt.batch_size
 
         self.path_H = []
         self.path_S = []
-        dir_id_list_test = self.opt.data_dir + '{}_test'.format(self.opt.data_type)
+        dir_id_list_test = self.opt.data_dir
+        print(f"dir_id_list_test: {dir_id_list_test}")  # Debug statement
 
-        self.dir = sorted(glob(dir_id_list_test+'/*'))
+        self.dir = sorted(glob(dir_id_list_test + '/*'))
+        print(f"Directories found: {self.dir}")  # Debug statement
 
         for p in self.dir:
             tmp_path_H = glob(p + '/H/*.dcm')
             tmp_path_S = glob(p + '/S/*.dcm')
+            print(f"tmp_path_H: {tmp_path_H}")  # Debug statement
+            print(f"tmp_path_S: {tmp_path_S}")  # Debug statement
 
             self.path_H.extend(tmp_path_H)
             self.path_S.extend(tmp_path_S)
@@ -316,8 +319,10 @@ class Dataset_test(data.Dataset):
         self.path_H = sorted(self.path_H)
         self.path_S = sorted(self.path_S)
 
-    def __getitem__(self, index):
+        print(f"Final path_H: {self.path_H}")  # Debug statement
+        print(f"Final path_S: {self.path_S}")  # Debug statement
 
+    def __getitem__(self, index):
         path_H = self.path_H[index]
         path_S = self.path_S[index]
 
@@ -325,10 +330,10 @@ class Dataset_test(data.Dataset):
         img_S = _read_dicom(path_S)
 
         # normalize for each volume
-        m_H,v_H = np.mean(img_H), np.std(img_H)
-        m_S,v_S = np.mean(img_S), np.std(img_S)
-        img_H = (img_H-m_H)/v_H
-        img_S = (img_S-m_S)/v_S
+        m_H, v_H = np.mean(img_H), np.std(img_H)
+        m_S, v_S = np.mean(img_S), np.std(img_S)
+        img_H = (img_H - m_H) / v_H
+        img_S = (img_S - m_S) / v_S
 
         img_S = img_S[np.newaxis, :, :]
         img_H = img_H[np.newaxis, :, :]
@@ -336,8 +341,8 @@ class Dataset_test(data.Dataset):
         img_S = torch.tensor(img_S, dtype=torch.float32)
         img_H = torch.tensor(img_H, dtype=torch.float32)
 
-        return {'real_S': img_S, 'real_H':img_H, 'path_H':path_H, 'path_S':path_S,
-                'stat_H':[m_H,v_H],'stat_S':[m_S,v_S],'id':[0]}
+        return {'real_S': img_S, 'real_H': img_H, 'path_H': path_H, 'path_S': path_S,
+                'stat_H': [m_H, v_H], 'stat_S': [m_S, v_S], 'id': [0]}
 
     def __len__(self):
         return int(len(self.path_H))
